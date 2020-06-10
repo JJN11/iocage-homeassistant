@@ -2,7 +2,6 @@
 #  Extra config command for the homeassistant service
 #     service homeassistant config
 #
-
 extra_commands="${extra_commands} config"
 
 config_cmd="${name}_config $@"
@@ -24,7 +23,7 @@ homeassistant_config() {
   }
   
   local dir="${3}"
-  [ ! -z "${dir}" ] || usage
+  #[ ! -z "${dir}" ] || usage
   #while [ "$1" != "" ]; do
     case $2 in
     
@@ -32,8 +31,8 @@ homeassistant_config() {
           local conf_dir="${dir:=$ha_config_dir}"
           if [ ! -d ${conf_dir} ]; then
             echo "${red} ${conf_dir} is not a directory or does not exist${end}" && exit
-          elif [ ! -d ${HA_BACKUP_DIR} ]; then
-            install -d -g ${homeassistant_group} -m 775 -o ${homeassistant_user} -- "${HA_BACKUP_DIR}" || exit
+          elif [ ! -d ${ha_backup_dir} ]; then
+            install -d -g ${homeassistant_group} -m 775 -o ${homeassistant_user} -- "${ha_backup_dir}" || exit
           fi
           su ${homeassistant_user} -c '
             echo -e "\n${orn}Creating backup.zip. This can take a few minutes to complete...\n${end}"
@@ -45,8 +44,8 @@ homeassistant_config() {
             echo "HA_BACKUP_DIR: ${2}"
             echo "HA_BACKUP_ZIP: ${backup}"
             zip -9 -q -r "${2}/${backup}" "${1}" -x"*/components/*" -x"*/deps/*" -x"*/home-assistant.log" -x"*/.cache/*" -x"*/__pycache__*/"
-          ' _ ${conf_dir} ${HA_BACKUP_DIR}
-          echo -e "\n${grn} Created backup in ${HA_BACKUP_DIR}/${end}"
+          ' _ ${conf_dir} ${ha_backup_dir}
+          echo -e "\n${grn} Created backup in ${ha_backup_dir}/${end}"
           ;;
           
       -c | --check )
