@@ -1,0 +1,92 @@
+#
+#  Extra config command for the homeassistant service
+#     service homeassistant config
+#
+
+extra_commands="${extra_commands} config"
+
+config_cmd="${name}_config $@"
+homeassistant_config() {
+  
+  usage() {
+    cat <<-_HELP_
+	  
+	  Usage: Do stuff with the configuration
+	    
+	  export TODO = Add more useful information to help
+	    
+	    -b  | --backup ) Create a zip backup of the configuration folder
+	    -c  | --check  ) Run a config check
+	    -cp | --copy   ) Copy configuration to another directory
+	    
+	_HELP_
+    exit
+  }
+  
+  local dir="${3}"
+  [ ! -z "${dir}" ] || usage
+  #while [ "$1" != "" ]; do
+    case $2 in
+    
+      -b | --backup )
+          local conf_dir="${dir:=$ha_config_dir}"
+          if [ ! -d ${conf_dir} ]; then
+            echo "${red} ${conf_dir} is not a directory or does not exist${end}" && exit
+          elif [ ! -d ${HA_BACKUP_DIR} ]; then
+            install -d -g ${homeassistant_group} -m 775 -o ${homeassistant_user} -- "${HA_BACKUP_DIR}" || exit
+          fi
+          su ${homeassistant_user} -c '
+            echo -e "\n${orn}Creating backup.zip. This can take a few minutes to complete...\n${end}"
+            _now=$(date +%F_%T)
+            _v=$(cat ${1}/.HA_VERSION >/dev/null 2>&1)
+            _ver=${_v:="NA"}
+            backup="ha_${_ver}_${_now}.zip"
+            echo "HA_CONFIG_DIR: ${1}"
+            echo "HA_BACKUP_DIR: ${2}"
+            echo "HA_BACKUP_ZIP: ${backup}"
+            zip -9 -q -r "${2}/${backup}" "${1}" -x"*/components/*" -x"*/deps/*" -x"*/home-assistant.log" -x"*/.cache/*" -x"*/__pycache__*/"
+          ' _ ${conf_dir} ${HA_BACKUP_DIR}
+          echo -e "\n${grn} Created backup in ${HA_BACKUP_DIR}/${end}"
+          ;;
+          
+      -c | --check )
+          local conf_dir="${dir:=$ha_config_dir}"
+          su ${homeassistant_user} -c '
+            source ${1}/bin/activate || exit 1
+            hass --config ${2} --script check_config
+            deactivate
+          ' _ ${homeassistant_venv} ${conf_dir}
+          ;;
+          
+      -cp | --copy )
+          shift
+          [ ! -z "${dir}" ] || { echo "Please provide a /second/directory/path"; exit; }
+          ## One folder must be empty! Copy config to the empty folder.
+          if [ ! -d "${dir}" ] || [ ! "$(ls -A ${dir})" ]; then
+            local config_from="${ha_config_dir}"
+            local config_to="${dir}"
+            install -d -g ${homeassistant_group} -m 775 -o ${homeassistant_user} -- "${config_to}" || exit
+          elif [ ! -d "${ha_config_dir}" ] || [ ! "$(ls -A ${ha_config_dir})" ]; then
+            local config_to="${ha_config_dir}"
+            local config_from="${dir}"
+            install -d -g ${homeassistant_group} -m 775 -o ${homeassistant_user} -- "${config_to}" || exit
+          else
+            echo "Destination must be an empty directory" && exit
+          fi
+          su ${homeassistant_user} -c '
+            echo "cp -R s: ${1}/ > d: ${2}/"
+          ' _ ${config_from} ${config_to}
+          ;;
+          
+      -h | --help )
+          usage
+          ;;
+          
+      * )
+        echo -e "\n Operation not supported: $@"
+        usage
+        ;;
+    esac
+  #shift
+  #done
+}

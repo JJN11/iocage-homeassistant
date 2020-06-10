@@ -1,0 +1,49 @@
+#
+#  Extra "test" command for the homeassistant service
+#     service homeassistant test
+#
+extra_commands="${extra_commands} test"
+
+test_cmd="${name}_test"
+homeassistant_test() {
+  
+  echo
+  echo "USER: `whoami`"
+  echo "HOME: $HOME"
+  echo "PATH: $PATH"
+  
+  echo -e "\nChecking Service\n"
+  
+  ## Check for venv directory
+  [ ! -d "${homeassistant_venv}" ] \
+  && { echo -e " NO DIRECTORY: ${homeassistant_venv}\n"; exit; }
+  
+  ## Check for activate script
+  [ ! -f "${homeassistant_venv}/bin/activate" ] \
+  && { echo -e " NO FILE: ${homeassistant_venv}/bin/activate\n"; exit; }
+  
+  echo "Switching users..."
+  ## Switch users / activate virtualenv / run a command
+  su "${homeassistant_user}" -c '
+    
+    echo -e " OK\n"
+    #[ -f ${HOME}/.ha_profile ] && source ${HOME}/.ha_profile
+    
+    echo " USER: `whoami`"
+    echo " HOME: $HOME"
+    echo " PATH: $PATH"
+    echo
+    echo " Using $(openssl version)"
+    echo " CFLAGS = ${CFLAGS}"
+    echo " LIBRARY_PATH = ${LIBRARY_PATH}"
+    echo
+    
+    source ${1}/bin/activate || exit 20
+    ## Check versions of python and homeassistant
+    echo " $(python --version)" || exit 21
+    echo " Home Assistant $(pip show homeassistant | grep Version | cut -d" " -f2)" || exit 22
+    echo
+    deactivate
+  ' _ ${homeassistant_venv} || { echo ${?}; exit; }
+  [ $? != 0 ] && echo "exit ${?}"
+}
