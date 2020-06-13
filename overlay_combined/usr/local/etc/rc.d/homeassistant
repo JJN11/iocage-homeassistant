@@ -135,7 +135,7 @@ homeassistant_check_config() {
 install_cmd="${name}_install ${@}"
 homeassistant_install() {
   
-  if [ ${2} == hacs ]; then
+  if [ "${2}" == "hacs" ]; then
     [ -d "${HA_CONFIG_DIR}/custom_components/hacs" ] && { echo "${red}HACS is already installed${end}"; exit; }
     pkg install -y wget zip || exit
     su ${homeassistant_user} -c '
@@ -155,7 +155,7 @@ homeassistant_install() {
     su ${homeassistant_user} -c '
       ${1} -m venv ${2}
       source ${2}/bin/activate || exit 3
-        pip install --upgrade pip wheel SQLAlchemy colorlog
+        pip install --upgrade pip wheel SQLAlchemy colorlog packaging
       deactivate
     ' _ ${homeassistant_python} ${homeassistant_venv} ${version}
   else
@@ -165,15 +165,19 @@ homeassistant_install() {
   
   su ${homeassistant_user} -c '
     source ${2}/bin/activate || exit 3
-      if [ ! -z ${3} ]; then
-        echo -e "\nInstalling Home Assistant Core version: ${3}\n"
-        pip install --upgrade homeassistant=="${3}" || exit 2
+      if [ ! -z ${4} ]; then
+        echo -e "\nInstalling Home Assistant Core version: ${4}\n"
+        pip install --upgrade homeassistant=="${4}" || exit 2
       else
         echo -e "\nInstalling Home Assistant Core\n"
         pip install --upgrade homeassistant || exit 2
       fi
+      # https://github.com/home-assistant/core/issues/36651
+      hass --config ${3} --script ensure_config
+      cat /dev/null > ${3}/home-assistant.log
+      hass --config ${3} --script check_config || exit 2
     deactivate
-  ' _ ${homeassistant_python} ${homeassistant_venv} ${version}
+  ' _ ${homeassistant_python} ${homeassistant_venv} ${ha_config_dir} ${version}
   [ ${?} == 0 ] && run_rc_command start
   
 }
